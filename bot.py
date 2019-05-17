@@ -107,12 +107,11 @@ if __name__ == '__main__':
     c.read('config.ini')
     if 'Bot' not in c:
         print("Bot section is missing in config.ini")
-    elif 'proxy_url' not in c['Bot']:
-        print("proxy_url isn't present in config.ini")
     elif 'token' not in c['Bot']:
         print("token isn't present in config.ini")
     elif 'white_ids' not in c['Bot']:
         print("white_ids isn't present in config.ini")
     else:
         ids = set(map(int, c['Bot']['white_ids'].split(',')))
-        main(ids, c['Bot']['token'], {'proxy_url': c['Bot']['proxy_url']})
+        proxy = c['Bot'].get('proxy_url')
+        main(ids, c['Bot']['token'], {'proxy_url': proxy} if proxy else {})
