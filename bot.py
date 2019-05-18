@@ -3,14 +3,13 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler
 from telegram.ext.filters import Filters
 from tempfile import NamedTemporaryFile
-from subprocess import check_output
+from subprocess import check_output, Popen
 from traceback import format_exc
 from configparser import ConfigParser
 from threading import Thread
 
 
 is_scanning = False
-queue = []
 
 
 def whitelist(white_ids):
@@ -23,29 +22,28 @@ def whitelist(white_ids):
 
 
 def scan_async(message):
-    t = Thread(target=scan, args=(message,), daemon=True)
-    t.run()
+    Thread(target=scan, args=(message,), daemon=True).start()
 
 
 def scan(message):
     global is_scanning
     try:
         is_scanning = True
-        out = check_output('scanimage | pnmtopng > scan.png', timeout=600, shell=True)
+        out = check_output('scanimage | pnmtojpeg > scan.jpg', timeout=600, shell=True)
         if out: raise OSError(out)
-        with open('scan.png', 'rb') as image:
+        with open('scan.jpg', 'rb') as image:
             message.reply_photo(image)
     except Exception:
-        message.reply_markdown(f'При сканировании произошла ошибка: ```{format_exc()}```')
+        message.reply_markdown(f'Error occured during scanning: ```{format_exc()}```')
     finally:
         is_scanning = False
 
 
 def cmd_start(update, context):
-    keyboard = [[InlineKeyboardButton('Сканировать', callback_data='scan'),
-                 InlineKeyboardButton('Печатать', callback_data='print')]]
+    keyboard = [[InlineKeyboardButton('Scan', callback_data='scan'),
+                 InlineKeyboardButton('Print', callback_data='print')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('Что мне делать?', reply_markup=reply_markup)
+    update.message.reply_text('What should I do?', reply_markup=reply_markup)
 
 
 def button(update, context):
@@ -53,24 +51,24 @@ def button(update, context):
     global is_scanning
     if query.data == 'scan':
         if is_scanning:
-            query.edit_message_text(text='Уже сканирую')
+            query.edit_message_text(text='Already scanning')
         else:
-            query.edit_message_text(text='Хорошо, начинаю сканировать')
+            query.edit_message_text(text='Scanning...')
         scan_async(query.message)
     elif query.data == 'print':
-        query.edit_message_text(text='Отправьте сюда файл для печати')
+        query.edit_message_text(text='Send file for printing here')
 
 
 def cmd_print(update, context):
-    update.message.reply_text('Отправьте сюда файл для печати')
+    update.message.reply_text('Send file for printing here')
 
 
 def cmd_scan(update, context):
     global is_scanning
     if is_scanning:
-        update.message.reply_text('Уже сканирую')
+        update.message.reply_text('Already scanning')
         return
-    update.message.reply_text('Хорошо, начинаю сканировать')
+    update.message.reply_text('Scanning...')
     scan_async(update.message)
 
 
@@ -78,10 +76,10 @@ def cmd_message(update, context):
     msg = update.message
     file_id = msg.photo[-1].file_id if msg.photo else msg.document.file_id
     # document.mime_type, document.thumb
-    queue.append(context.bot.get_file(file_id))
     with NamedTemporaryFile() as temp_file:
         context.bot.get_file(file_id).download(out=temp_file)
-        update.message.reply_text(f'Saved attachment to {temp_file.name}')
+        Popen(['lp', temp_file.name])
+        update.message.reply_text(f'Downloaded file and sent to the print queue')
 
 
 def error(update, context):

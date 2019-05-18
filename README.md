@@ -19,3 +19,7 @@ token = TELEGRAM_BOT_TOKEN
 proxy_url = https://PROXY_LOGIN:PASS@OPTIONAL_PROXY:PORT
 white_ids = CHAT_ID1,CHAT_ID2
 ```
+
+Then run: `python3 bot.py`
+
+Scanning works through `scanimage` command (SANE), printing through `lp` (CUPS)
