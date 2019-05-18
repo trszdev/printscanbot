@@ -77,13 +77,14 @@ def cmd_message(update, context):
     file_id = msg.photo[-1].file_id if msg.photo else msg.document.file_id
     # document.mime_type, document.thumb
     with NamedTemporaryFile() as temp_file:
+        update.message.reply_text(f'Downloading your {"photo" if msg.photo else "document"} for printing...')
         context.bot.get_file(file_id).download(out=temp_file)
         Popen(['lp', temp_file.name])
-        update.message.reply_text(f'Downloaded file and sent to the print queue')
+        update.message.reply_text('Downloaded file and sent to the print queue')
 
 
 def error(update, context):
-    print('Update "%s" caused error "%s"', update, context.error)
+    print(f'Update "{update}" caused error "{context.error}"')
 
 
 def main(white_ids, token, proxy):
