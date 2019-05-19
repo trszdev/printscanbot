@@ -12,15 +12,6 @@ from threading import Thread
 is_scanning = False
 
 
-def whitelist(white_ids):
-    def deco(handler):
-        def wrapper(update, context):
-            if update.effective_chat.id in white_ids:
-                return handler(update, context)
-        return wrapper
-    return deco
-
-
 def scan_async(message):
     Thread(target=scan, args=(message,), daemon=True).start()
 
@@ -60,7 +51,7 @@ def button(update, context):
 
 
 def cmd_print(update, context):
-    update.message.reply_text('Send file for printing here')
+    update.message.reply_text('Send file for printing in reply to this message')
 
 
 def cmd_scan(update, context):
@@ -77,10 +68,10 @@ def cmd_message(update, context):
     file_id = msg.photo[-1].file_id if msg.photo else msg.document.file_id
     # document.mime_type, document.thumb
     with NamedTemporaryFile() as temp_file:
-        update.message.reply_text(f'Downloading your {"photo" if msg.photo else "document"} for printing...')
+        msg = update.message.reply_text(f'Downloading your {"photo" if msg.photo else "document"} for printing...')
         context.bot.get_file(file_id).download(out=temp_file)
         Popen(['lp', temp_file.name])
-        update.message.reply_text('Downloaded file and sent to the print queue')
+        msg.edit_text('Downloaded file and sent to the print queue')
 
 
 def error(update, context):
@@ -89,12 +80,13 @@ def error(update, context):
 
 def main(white_ids, token, proxy):
     updater = Updater(token, request_kwargs=proxy, use_context=True)
-    w = whitelist(white_ids)
-    updater.dispatcher.add_handler(CommandHandler('start', w(cmd_start)))
-    updater.dispatcher.add_handler(CallbackQueryHandler(w(button)))
-    updater.dispatcher.add_handler(CommandHandler('print', w(cmd_print)))
-    updater.dispatcher.add_handler(CommandHandler('scan', w(cmd_scan)))
-    updater.dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, w(cmd_message)))
+    chat_filter = Filters.chat(white_ids)
+    print_filter = Filters.photo | Filters.document
+    updater.dispatcher.add_handler(CommandHandler('start', cmd_start, chat_filter))
+    updater.dispatcher.add_handler(CallbackQueryHandler(button))
+    updater.dispatcher.add_handler(CommandHandler('print', cmd_print, chat_filter))
+    updater.dispatcher.add_handler(CommandHandler('scan', cmd_scan, chat_filter))
+    updater.dispatcher.add_handler(MessageHandler(chat_filter & print_filter, cmd_message))
     updater.dispatcher.add_error_handler(error)
     updater.start_polling()
     updater.idle()
